@@ -1,6 +1,9 @@
 import { fetchRequest } from "../api";
 import { ENDPOINT, logout, SECTIONTYPE } from "../common";
 
+const audio = new Audio();
+
+
 const onProfileClick = (event) => {
     event.stopPropagation();
     const profileMenu = document.querySelector("#profile-menu");
@@ -106,8 +109,88 @@ const onTrackSelection = (id, event)=>{
     })
 }
 
-const onPlayTrack = (event, {image, artistNames, name, duration, previewUrl, id})=>{
-    console.log(image, artistNames, name, duration, previewUrl, id);
+// const timeline = document.querySelector("#")
+
+const updateIconsForPlayMode = (id) => {
+    const playButton = document.querySelector("#play");
+    playButton.querySelector("span").textContent = "pause_circle";
+    const playButtonFromTracks = document.querySelector(`#play-track-${id}`);
+    if(playButtonFromTracks){
+    playButtonFromTracks.textContent = "pause";
+    }
+    // playButtonFromTracks.setAttribute("data-play", "true");
+}
+
+const updateIconsForPauseMode = (id) => {
+    const playButton = document.querySelector("#play");
+    playButton.querySelector("span").textContent = "play_circle";
+    const playButtonFromTracks = document.querySelector(`#play-track-${id}`);
+    if(playButtonFromTracks){
+    playButtonFromTracks.textContent = "play_arrow";
+    }
+}
+
+const onAudioMetadataLoaded = (id) => {
+    const totalSongDuration = document.querySelector("#total-song-duration");
+    totalSongDuration.textContent = `0:${audio.duration.toFixed(0)}`;
+}
+
+
+
+
+const togglePlay = () => {
+    if(audio.src){
+    if(audio.paused){
+        audio.play();
+    }
+    else{
+        audio.pause();
+    }
+}
+}
+
+const playTrack = (event, {image, artistNames, name, duration, previewUrl, id})=>{
+    if(event?.stopPropagation){
+        event.stopPropagation();
+        // optional chaining
+    }
+    // const buttonWithDataPlay = document.querySelector("[data-play]") 
+    // const button = event.target;
+    if(audio.src === previewUrl){
+        togglePlay();
+    }
+    else{
+        // buttonWithDataPlay.removeAttribute("data-play");
+        console.log(image, artistNames, name, duration, previewUrl, id);
+        // <img id="now-playing-image" class="h-12 w-12" src="" alt="" />
+        //       <section class="flex flex-col justify-center">
+        //         <h2 id="now-playing-song" class="text-sm font-semibold text-primary">
+        //           song title
+        //         </h2>
+        //         <p id="now-playing-artists" class="text-xs">song artists</p>
+        //       </section>
+    
+        
+    
+        const nowPlayingSongImage = document.querySelector("#now-playing-image");
+        nowPlayingSongImage.src = image.url;
+        const songTitle = document.querySelector("#now-playing-song");
+        songTitle.textContent = name;
+        const artists = document.querySelector("#now-playing-artists");
+        artists.textContent = artistNames;
+        
+        const audioControl = document.querySelector("#audio-control");
+
+        audioControl.setAttribute("data-track-id", id);
+
+        audio.src = previewUrl;
+        // audio.removeEventListener("loadedmetadata", () => onAudioMetadataLoaded(id));
+        // audio.addEventListener("loadedmetadata", () => onAudioMetadataLoaded(id));
+        // playButton.addEventListener("click", () => onNowPlayingPlayButtonClicked(id));
+        audio.play();
+
+    }
+
 }
 
 const loadPlaylistTracks = ({tracks}) => {
@@ -140,7 +223,7 @@ const loadPlaylistTracks = ({tracks}) => {
            <section class="grid grid-cols-[auto_1fr] place-items-center gap-2">
              <img class="h-10 w-10" src="${image.url}" alt="${name}" />
              <article class="flex flex-col gap-2 justify-center">
-               <h2 class="text-base text-primary line-clamp-1">${name}</h2>
+               <h2 class="song-title text-base text-primary line-clamp-1">${name}</h2>
                <p class="text-xs line-clamp-1">${artistNames}</p>
              </article>
            </section>
@@ -148,10 +231,10 @@ const loadPlaylistTracks = ({tracks}) => {
            <p class="text-sm">${formatTime(duration)}</p>`;
            track.addEventListener("click", (event)=> onTrackSelection(id,event));
            const playButton = document.createElement("button");
-           playButton.id = `play-track${id}`;
-           playButton.className = `play w-full absolute left-0 text-lg invisible`;
-           playButton.textContent = "▶️";
-           playButton.addEventListener("click", (event)=>onPlayTrack(event, {image, artistNames, name, duration, previewUrl, id}))
+           playButton.id = `play-track-${id}`;
+           playButton.className = `play w-full absolute left-0 text-lg invisible material-symbols-outlined`;
+           playButton.textContent = "play_arrow";
+           playButton.addEventListener("click", (event)=>playTrack(event, {image, artistNames, name, duration, previewUrl, id}))
            track.querySelector("p").appendChild(playButton);
            trackSections.appendChild(track);
     }
@@ -160,9 +243,19 @@ const loadPlaylistTracks = ({tracks}) => {
 const fillContentForPlaylist = async (playlistId) => {
     const pageContent = document.querySelector("#page-content");
     // pageContent.innerHTML = "playlist to be loaded here"
-    const playlist =await fetchRequest(`${ENDPOINT.playlist}/${playlistId}`)
+    const playlist =await fetchRequest(`${ENDPOINT.playlist}/${playlistId}`);
+    console.log(playlist);
+    const {name, description, images, tracks} = playlist;
+    const coverElement = document.querySelector("#cover-content");
+    coverElement.innerHTML = `
+    <img class="object-contain h-36 w-36" src="${images[0].url}" alt="${name}">
+    <section>
+    <h2 id="playlist-name" class="text-4xl">${playlist.name}</h2>
+    <p id="playlist-details">${tracks.items.length} songs</p>
+    </section>
+    `
     pageContent.innerHTML = `
-    <header id="playlist-header" class="mx-8 py-4 border-secondary border-b-[0.5px]">
+    <header id="playlist-header" class="mx-8 py-4 border-secondary border-b-[0.5px] z-10">
     <nav class="py-2">
       <ul
         class="grid grid-cols-[50px_1fr_1fr_50px] gap-4 text-secondary"
@@ -229,6 +322,13 @@ const loadSection = (section) => {
 }
 
 document.addEventListener("DOMContentLoaded", ()=> {
+    const volume = document.querySelector("#volume");
+    const playButton = document.querySelector("#play");
+    const totalSongDurationCompleted = document.querySelector("#song-duration-completed");
+    const songProgress = document.querySelector("#progress");
+    const timeline = document.querySelector("#timeline");
+    const audioControl = document.querySelector("#audio-control");
+    let progressInterval;
     loadUserProfile();
     // const section = {type: SECTIONTYPE.DASHBOARD};
     const section = {type : SECTIONTYPE.PLAYLIST, playlist: "37i9dQZF1DWVDCraF986xg"}
@@ -243,6 +343,52 @@ document.addEventListener("DOMContentLoaded", ()=> {
             profileMenu.classList.add("hidden")
         }
     })
+
+    audio.addEventListener("play", () => {
+
+        // clearInterval(progressInterval);
+        // timeline.addEventListener("click")
+        const selectedTrackId = audioControl.getAttribute("data-track-id");
+
+        const tracks = document.querySelector("#tracks");
+        const playingTrack = tracks?.querySelector("section.playing")
+        const selectedTrack = tracks?.querySelector(`[id="${selectedTrackId}"]`);
+        if(playingTrack?.id !== selectedTrack?.id){
+            playingTrack?.classList.remove("playing"); 
+        }
+        selectedTrack?.classList.add("playing");
+
+        progressInterval =  setInterval(() => {
+            if(audio.paused){
+                return 
+            }
+            totalSongDurationCompleted.textContent = `${audio.currentTime<9 ? "0:0" + audio.currentTime.toFixed(0) : "0:" + audio.currentTime.toFixed(0)}`;
+            songProgress.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+        }, 100);
+        updateIconsForPlayMode(selectedTrackId)
+    })
+
+    audio.addEventListener("pause", () => {
+        if(progressInterval){
+            clearInterval(progressInterval);
+        }
+        const selectedTrackId = audioControl.getAttribute("data-track-id");
+        updateIconsForPauseMode(selectedTrackId);
+    })
+
+    audio.addEventListener("loadedmetadata", onAudioMetadataLoaded);
+    playButton.addEventListener("click", togglePlay);
+
+    volume.addEventListener("change", ()=> {
+        audio.volume = volume.value / 100;
+    })
+    
+    timeline.addEventListener("click", (e)=>{
+        const timelineWidth = window.getComputedStyle(timeline).width;
+        const timeToSeek = (e.offsetX / parseInt(timelineWidth)) * audio.duration;
+        audio.currentTime = timeToSeek;
+        songProgress.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+    }, false)
 
     window.addEventListener("popstate", (event)=> {
         loadSection(event.state);
