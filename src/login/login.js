@@ -36,6 +36,7 @@ window.addEventListener("load", ()=>{
 
         // console.log(window.location.hash);
         const {hash} = window.location;
+        console.log({hash});
         const searchParams = new URLSearchParams(hash);
         const accessToken = searchParams.get("#access_token");
         const tokenType = searchParams.get("token_type");
